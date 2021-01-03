@@ -8,6 +8,12 @@ app = Flask(__name__)
 target = 0
 target_till = 0
 
+@app.after_request
+def add_header(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Cache-Control'] = 'max-age=10'
+    return response
+
 
 @app.route('/')
 def home():
@@ -24,12 +30,13 @@ def getAllData():
       'oceanRoom': data_heatingcontroller['StatusSNS']['DS18B20-3']['Temperature'],
       'hotWater': data_heatingcontroller['StatusSNS']['DS18B20-1']['Temperature'],
       'hallTemperature': data_stairs['StatusSNS']['DS18B20']['Temperature'],
-      'setOceanRoomTemperature': data_setpoints['Mem1'],
+      'setOceanRoomTemperature': float(data_setpoints['Mem1']),
       'targetHallTemperature': target,
+      'isHeatingNow': target>data_stairs['StatusSNS']['DS18B20']['Temperature']
     }
 
 def setSetpoint(temp):
-    requests.get('http://heating.lan/cm?cmnd=mem1%20'+str(temp))
+    requests.get('http://heating.lan/cm?cmnd=mem1%20'+('%.1f' % temp))
 
     print(time.strftime("%A, %d. %B %Y %I:%M:%S %p") + "temp target is now " + str(temp) )
 
@@ -45,7 +52,7 @@ def setTarget(offset):
     global target
     global target_till
 
-    target = x['hallTemperature'] + offset;
+    target = round(x['hallTemperature'] + offset,1);
     target_till = time.time()+(3*3600);
 
 
@@ -99,5 +106,7 @@ scheduler.start()
 atexit.register(lambda: scheduler.shutdown())
 
 
-
+if __name__ == '__main__':
+      app.run(host='0.0.0.0', port=19891)
+      
 
